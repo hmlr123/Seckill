@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+        http://www.springframework.org/schema/beans/spring-beans.xsd
+        http://www.springframework.org/schema/context
+        http://www.springframework.org/schema/context/spring-context.xsd">
+
+    <!--引入jdbc配置文件-->
+    <context:property-placeholder location="classpath:jdbc.properties"/>
+    <!--<context:property-placeholder location="classpath:redis.properties"/>-->
+
+    <!--配置数据库连接池-->
+    <bean id="dataSource" class="com.mchange.v2.c3p0.ComboPooledDataSource">
+        <!--配置基本的数据库连接-->
+        <property name="driverClass" value="${jdbc.driver}"/>
+        <property name="jdbcUrl" value="${jdbc.url}"/>
+        <property name="user" value="${jdbc.user}"/>
+        <property name="password" value="${jdbc.password}"/>
+
+        <!--c3p0私有属性-->
+        <property name="maxPoolSize" value="30"/>
+        <property name="minPoolSize" value="10"/>
+        <!--关闭连接后不自动commit-->
+        <property name="autoCommitOnClose" value="false"/>
+        <!--获取连接超时时间-->
+        <property name="checkoutTimeout" value="5000"/>
+    </bean>
+
+    <!--配置sqlSessionFactory对象-->
+    <bean id="sqlSessionFactory" class="org.mybatis.spring.SqlSessionFactoryBean">
+        <!--注入数据库连接池-->
+        <property name="dataSource" ref="dataSource"/>
+        <!--配置mybatis全局配置文件-->
+        <property name="configLocation" value="classpath:mybatis-config.xml"/>
+        <!--配置entity包，实体类包，用于别名配置-->
+        <property name="typeAliasesPackage" value="com.hmlr123.entity"/>
+        <!--配置需要扫描的mapper.xml文件-->
+        <property name="mapperLocations" value="classpath*:com.hmlr123.dao/*.xml"/>
+    </bean>
+
+    <!--配置mapper接口包，动态实现mapper接口，注入到Spring容器中-->
+    <bean class="org.mybatis.spring.mapper.MapperScannerConfigurer">
+        <!--注入sqlSessionFactory，注意不要使用sqlSessionFactoryBean-->
+        <property name="sqlSessionFactoryBeanName" value="sqlSessionFactory"/>
+        <!--要扫描的mapper接口-->
+        <property name="basePackage" value="com.hmlr123.dao"/>
+    </bean>
+
+    <!--&lt;!&ndash;注入redis&ndash;&gt;-->
+    <bean id="redisDao" class="com.hmlr123.dao.cache.RedisDao">
+        <!--构造方法注入值-->
+        <constructor-arg index="0" value="192.168.140.4"/>
+        <constructor-arg index="1" value="6379"/>
+    </bean>
+
+    <!--配置JedisPoolConfig实例-->
+    <!--<bean id="poolConfig" class="redis.clients.jedis.JedisPoolConfig">-->
+        <!--<property name="maxIdle" value="${redis.maxIdle}"/>-->
+        <!--<property name="maxTotal" value="${redis.maxActive}"/>-->
+        <!--<property name="maxWaitMillis" value="${redis.maxWait}"/>-->
+        <!--&lt;!&ndash;在borrow一个jedis实例时，是否提前进行alidate操作；如果为true，则得到的jedis实例均是可用的；&ndash;&gt;-->
+        <!--<property name="testOnBorrow" value="${redis.testOnBorrow}"/>-->
+    <!--</bean>-->
+
+    <!--&lt;!&ndash;配置JedisConnectionFactory&ndash;&gt;-->
+    <!--<bean id="jedisConnectionFactory" class="org.springframework.data.redis.connection.jedis.JedisConnectionFactory">-->
+        <!--<property name="hostName" value="${redis.host}"/>-->
+        <!--<property name="port" value="${redis.port}"/>-->
+        <!--<property name="password" value="${redis.pass}"/>-->
+        <!--&lt;!&ndash;#redis 支持16个数据库（相当于不同用户）可以使不同的应用程序数据彼此分开同时又存储在相同的实例上&ndash;&gt;-->
+        <!--<property name="database" value="${redis.dbIndex}"/>-->
+        <!--<property name="poolConfig" ref="poolConfig"/>-->
+    <!--</bean>-->
+
+    <!--&lt;!&ndash;配置RedisTemplate RedisTemplate 对 RedisConnection 进行了封装。提供连接管理，序列化等功能，-->
+    <!--它对 Redis 的交互进行了更高层次的抽象，极大的方便和简化了 Redis 的操作&ndash;&gt;-->
+    <!--<bean id="redisTemplate" class="org.springframework.data.redis.core.RedisTemplate">-->
+        <!--<property name="connectionFactory" ref="jedisConnectionFactory"/>-->
+    <!--</bean>-->
+
+    <!--&lt;!&ndash;配置RedisCacheManager 做为 redis 统一的调度和管理者&ndash;&gt;-->
+    <!--<bean id="redisCacheManager" class="org.springframework.data.redis.cache.RedisCacheManager">-->
+        <!--<constructor-arg name="redisOperations" ref="redisTemplate"/>-->
+        <!--&lt;!&ndash;#redis 缓存数据过期时间单位秒&ndash;&gt;-->
+        <!--<property name="defaultExpiration" value="${redis.expiration}"/>-->
+    <!--</bean>-->
+
+    <!--&lt;!&ndash;RedisCacheConfig extends org.springframework.cache.annotation.CachingConfigurerSupport，-->
+    <!--自定义redis的key生成规则，如果不在注解参数中注明key=“”的话，就采用这个类中的key生成规则生成key&ndash;&gt;-->
+    <!--<bean id="redisCacheConfig" class="com.hmlr123.dao.cache.RedisCacheConfig">-->
+        <!--<constructor-arg ref="jedisConnectionFactory"/>-->
+        <!--<constructor-arg ref="redisTemplate"/>-->
+        <!--<constructor-arg ref="redisCacheManager"/>-->
+    <!--</bean>-->
+
+    <!--&lt;!&ndash;redis序列化策略，通常情况下key值采用String序列化策略-->
+    <!--如果不指定序列化策略，StringRedisTemplate的key和value都将采用String序列化策略-->
+    <!--但是RedisTemplate的key和value都将采用JDK序列化 这样就会出现采用不同template保存的数据不能用同一个template删除的问题-->
+    <!--&ndash;&gt;-->
+    <!--<bean id="stringRedisSerializer" class="org.springframework.data.redis.serializer.StringRedisSerializer"/>-->
+
+</beans>
